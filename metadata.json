@@ -1,0 +1,6 @@
+{
+  "name": "Thiệp Chúc Mừng Sinh Nhật",
+  "description": "Trang web chúc mừng sinh nhật với hiệu ứng hoa anh đào, trình phát ảnh và nhạc nền.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

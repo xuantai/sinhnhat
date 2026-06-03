@@ -3,13 +3,41 @@ import express from 'express';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import fs from 'fs';
+import multer from 'multer';
 
 const app = express();
 const PORT = parseInt(process.env.PORT || "3000");
 
 app.use(express.json());
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 const CONFIG_FILE = path.join(process.cwd(), 'birthday_config.json');
+
+// File upload setup
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = path.join(process.cwd(), 'uploads');
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, 'music-' + uniqueSuffix + path.extname(file.originalname).toLowerCase());
+  }
+});
+
+const upload = multer({
+  storage,
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype === 'audio/mpeg' || path.extname(file.originalname).toLowerCase() === '.mp3') {
+      cb(null, true);
+    } else {
+      cb(new Error('Only MP3 files are allowed'));
+    }
+  }
+});
 
 // Default configuration
 let currentConfig = {
@@ -18,6 +46,7 @@ let currentConfig = {
     "https://images.unsplash.com/photo-1530103862676-de8892bc1cb7?q=80&w=1000&auto=format&fit=crop"
   ],
   musicUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
+  musicStartTime: 0,
   message: "Chúc mừng sinh nhật! Chúc bạn tuổi mới ngập tràn niềm vui, nhiều tiếng cười và luôn hạnh phúc nhé.",
   recipientName: "",
   birthdayDate: "",
@@ -48,6 +77,23 @@ const saveConfig = () => {
 // API Routes
 app.get('/api/config', (req, res) => {
   res.json(currentConfig);
+});
+
+app.post('/api/upload-music', upload.single('music'), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: 'No files were uploaded or invalid file format.' });
+  }
+  const fileUrl = `/uploads/${req.file.filename}`;
+  res.json({ url: fileUrl });
+});
+
+app.post('/api/verify-password', (req, res) => {
+  const { password } = req.body;
+  if (password === 'admin123') {
+    res.json({ success: true });
+  } else {
+    res.status(401).json({ error: "Mật khẩu không đúng!" });
+  }
 });
 
 app.post('/api/config', (req, res) => {

@@ -7,6 +7,7 @@ import FlowerPetals from './FlowerPetals';
 interface AppConfig {
   images: string[];
   musicUrl: string;
+  musicStartTime?: number;
   message: string;
   recipientName: string;
   birthdayDate: string;
@@ -86,6 +87,9 @@ export default function BirthdayCard() {
   const handleOpenCard = () => {
     setIsOpened(true);
     if (audioRef.current) {
+      if (config?.musicStartTime) {
+        audioRef.current.currentTime = config.musicStartTime;
+      }
       audioRef.current.play().catch(e => console.log("Audio autoplay blocked", e));
     }
   };

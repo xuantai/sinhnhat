@@ -9,3 +9,4 @@ coverage/
 .env.*.local
 !.env.example
 birthday_config.json
+uploads/

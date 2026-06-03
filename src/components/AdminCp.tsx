@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Save, Image as ImageIcon, Music, Type, Plus, Trash2, User, Calendar } from 'lucide-react';
+import { Settings, Save, Image as ImageIcon, Music, Type, Plus, Trash2, User, Calendar, Home, LogIn } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 interface AppConfig {
   images: string[];
   musicUrl: string;
+  musicStartTime?: number;
   message: string;
   recipientName: string;
   birthdayDate: string;
@@ -15,9 +17,12 @@ interface AppConfig {
 export default function AdminCp() {
   const [config, setConfig] = useState<AppConfig | null>(null);
   const [password, setPassword] = useState('');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [loginError, setLoginError] = useState('');
   const [authStatus, setAuthStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingMusic, setUploadingMusic] = useState(false);
 
   useEffect(() => {
     fetch('/api/config')
@@ -75,31 +80,122 @@ export default function AdminCp() {
     });
   };
 
+  const handleUploadMusic = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    const file = e.target.files[0];
+    if (file.type !== 'audio/mpeg' && !file.name.toLowerCase().endsWith('.mp3')) {
+      alert('Vui lòng chỉ tải lên file MP3.');
+      return;
+    }
+
+    setUploadingMusic(true);
+    const formData = new FormData();
+    formData.append('music', file);
+
+    try {
+      const res = await fetch('/api/upload-music', {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await res.json();
+      if (res.ok && data.url) {
+        setConfig(prev => prev ? { ...prev, musicUrl: data.url } : null);
+        alert('Tải nhạc thành công!');
+      } else {
+        alert(data.error || 'Lỗi khi tải nhạc.');
+      }
+    } catch (err) {
+      alert('Lỗi tải tệp tin.');
+    }
+    setUploadingMusic(false);
+  };
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoginError('');
+    try {
+      const res = await fetch('/api/verify-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setIsAuthenticated(true);
+      } else {
+        setLoginError(data.error || 'Sai mật khẩu!');
+      }
+    } catch (err) {
+      setLoginError('Lỗi kết nối Server.');
+    }
+  };
+
   if (loading || !config) {
     return <div className="min-h-screen flex items-center justify-center bg-gray-50">Đang tải...</div>;
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4 font-sans">
+        <div className="w-full max-w-md bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+          <div className="flex flex-col items-center justify-center mb-8">
+            <div className="w-16 h-16 bg-rose-50 rounded-full flex items-center justify-center mb-4">
+              <Settings size={32} className="text-rose-500" />
+            </div>
+            <h1 className="text-2xl font-bold text-gray-800">Admin Control Panel</h1>
+            <p className="text-sm text-gray-500 mt-2 text-center">Đăng nhập để thay đổi cấu hình thiệp</p>
+          </div>
+
+          <form onSubmit={handleLogin} className="space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Mật khẩu truy cập</label>
+              <input 
+                type="password" 
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                placeholder="Nhập mật khẩu..."
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-rose-500 focus:border-rose-500 outline-none transition-all"
+                autoFocus
+              />
+              {loginError && <p className="text-red-500 text-sm mt-2 font-medium">{loginError}</p>}
+            </div>
+            
+            <button 
+              type="submit"
+              className="w-full flex justify-center items-center gap-2 bg-rose-500 hover:bg-rose-600 text-white px-6 py-3 rounded-xl font-medium transition-colors shadow-sm"
+            >
+              <LogIn size={20} />
+              Đăng nhập
+            </button>
+          </form>
+          
+          <div className="mt-8 text-center">
+             <Link to="/" className="inline-flex items-center gap-2 text-gray-500 hover:text-rose-500 font-medium transition-colors">
+               <Home size={18} />
+               Quay lại Trang chủ
+             </Link>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-8 font-sans">
       <div className="max-w-3xl mx-auto bg-white rounded-2xl shadow-sm border border-gray-100 p-6 md:p-10">
         
-        <div className="flex items-center gap-3 mb-8 border-b border-gray-100 pb-4">
-          <Settings className="text-rose-500" />
-          <h1 className="text-2xl font-bold font-display text-gray-800">Admin Control Panel</h1>
+        <div className="flex items-center justify-between mb-8 border-b border-gray-100 pb-4">
+          <div className="flex items-center gap-3">
+            <Settings className="text-rose-500" />
+            <h1 className="text-2xl font-bold font-display text-gray-800">Cấu hình thiệp</h1>
+          </div>
+          <Link to="/" className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition-colors">
+            <Home size={16} />
+            Trang chủ
+          </Link>
         </div>
 
         <div className="space-y-8">
-          {/* Mật khẩu */}
-          <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Mật khẩu Admin</label>
-            <input 
-              type="password" 
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              placeholder="Nhập mật khẩu (Mặc định: admin123)"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-rose-500 focus:border-rose-500 outline-none"
-            />
-          </div>
 
           {/* Thông tin thẻ */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -174,16 +270,44 @@ export default function AdminCp() {
           <div>
             <label className="flex items-center gap-2 text-lg font-medium text-gray-800 mb-2">
               <Music size={20} className="text-rose-500" /> 
-              Link nhạc nền
+              Nhạc nền
             </label>
-            <p className="text-sm text-gray-500 mb-3">Có thể dùng link YouTube, Google Drive, SoundCloud, MP3 trực tiếp hoặc mã nhúng iframe (ví dụ từ ZingMP3).</p>
-            <input 
-              type="text" 
-              value={config.musicUrl}
-              onChange={e => setConfig({ ...config, musicUrl: e.target.value })}
-              placeholder="https://...mp3"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-rose-500 focus:border-rose-500 outline-none font-mono text-sm"
-            />
+            <p className="text-sm text-gray-500 mb-3">Tải lên file MP3 hoặc dùng URL có sẵn. Chọn thời gian bắt đầu phát.</p>
+            
+            <div className="space-y-4 bg-gray-50 p-4 rounded-xl border border-gray-200">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Tải nhạc mới (.mp3)</label>
+                <input 
+                  type="file" 
+                  accept=".mp3,audio/mpeg"
+                  onChange={handleUploadMusic}
+                  className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-rose-50 file:text-rose-700 hover:file:bg-rose-100 cursor-pointer"
+                />
+                {uploadingMusic && <p className="text-xs text-rose-500 mt-1">Đang tải lên...</p>}
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Hoặc Link nhạc (hiện tại)</label>
+                <input 
+                  type="text" 
+                  value={config.musicUrl}
+                  onChange={e => setConfig({ ...config, musicUrl: e.target.value })}
+                  placeholder="https://...mp3"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-rose-500 focus:border-rose-500 outline-none font-mono text-sm"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Phát từ giây thứ</label>
+                <input 
+                  type="number" 
+                  min="0"
+                  value={config.musicStartTime || 0}
+                  onChange={e => setConfig({ ...config, musicStartTime: parseInt(e.target.value) || 0 })}
+                  className="w-32 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-rose-500 focus:border-rose-500 outline-none font-mono text-sm"
+                />
+              </div>
+            </div>
           </div>
 
           {/* Lời chúc */}
